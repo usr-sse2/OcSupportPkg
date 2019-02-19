@@ -47,4 +47,10 @@ InternalGetExternalRelocationByOffset (
   IN     UINT64            Address
   );
 
+BOOLEAN
+InternalSymbolIsSane (
+  IN OUT OC_MACHO_CONTEXT     *Context,
+  IN     CONST MACH_NLIST_64  *Symbol
+  );
+
 #endif // OC_MACHO_LIB_INTERNAL_H_

@@ -203,7 +203,6 @@ MachoGetClassNameFromVtableName (
   )
 {
   ASSERT (VtableName != NULL);
-  ASSERT (MachoSymbolNameIsVtable64 (VtableName));
   //
   // As there is no suffix, just return a pointer from within VtableName.
   //
@@ -485,13 +484,12 @@ MachoGetFinalSymbolNameFromClassName (
 /**
   Returns whether SymbolName defines a VTable.
 
-  @param[in,out] Context     Context of the Mach-O.
-  @param[in]     SymbolName  The symbol name to check.
+  @param[in] SymbolName  The symbol name to check.
 
 **/
 BOOLEAN
 MachoSymbolNameIsVtable64 (
-  IN     CONST CHAR8       *SymbolName
+  IN CONST CHAR8  *SymbolName
   )
 {
   ASSERT (SymbolName != NULL);
@@ -529,29 +527,39 @@ MachoVtableGetNumberOfEntries64 (
   IN     CONST UINT64      *VtableData
   )
 {
-  UINT32 Index;
-  UINT32 NumberOfEntries;
-  UINT64 *LastEntry;
+  MACH_HEADER_64 *MachHeader;
+  UINT32         MachSize;
+  UINT32         Index;
+  UINT32         NumberOfEntries;
 
   ASSERT (Context != NULL);
   ASSERT (VtableData != NULL);
-  ASSERT (&VtableData[0] > (UINT64 *) Context->MachHeader);
 
-  LastEntry = (UINT64 *) ((UINTN) Context->MachHeader + Context->FileSize) - 1;
+  MachHeader = MachoGetMachHeader64 (Context);
+  ASSERT (MachHeader != NULL);
 
-  ASSERT (&VtableData[VTABLE_HEADER_LEN_64] <= LastEntry);
+  if ((VOID *)VtableData >= (VOID *)(MachHeader->Commands + MachHeader->NumCommands)) {
+    MachSize = MachoGetFileSize (Context);
+    ASSERT (MachSize > 0);
 
-  NumberOfEntries = 0;
-  //
-  // Assumption: Not ARM.  Currently verified by the Context initialization.
-  //
-  Index = VTABLE_HEADER_LEN_64;
-  while (&VtableData[Index] <= LastEntry && VtableData[Index] != 0) {
-    ++NumberOfEntries;
-    ++Index;
+    NumberOfEntries = 0;
+    //
+    // Assumption: Not ARM.  Currently verified by the Context initialization.
+    //
+    for (
+      Index = VTABLE_HEADER_LEN_64;
+      (UINT8 *)&VtableData[Index + 1] <= ((UINT8 *)MachHeader + MachSize);
+      ++Index
+      ) {
+      if (VtableData[Index] == 0) {
+        return NumberOfEntries;
+      }
+
+      ++NumberOfEntries;
+    }
   }
 
-  return NumberOfEntries;
+  return 0;
 }
 
 /**
@@ -569,17 +577,23 @@ MachoGetMetaclassSymbolFromSmcpSymbol64 (
   IN     CONST MACH_NLIST_64  *Smcp
   )
 {
+  BOOLEAN       Result;
+  MACH_NLIST_64 *Symbol;
+
   ASSERT (Context != NULL);
   ASSERT (Smcp != NULL);
+  ASSERT (MachoIsSymbolValueSane64 (Context, Smcp));
 
-  if (!MachoIsSymbolValueInRange64 (Context, Smcp)) {
+  Result = MachoGetSymbolByExternRelocationOffset64 (
+             Context,
+             Smcp->Value,
+             &Symbol
+             );
+  if (!Result) {
     return NULL;
   }
 
-  return MachoGetSymbolByExternRelocationOffset64 (
-             Context,
-             Smcp->Value
-             );
+  return Symbol;
 }
 
 /**

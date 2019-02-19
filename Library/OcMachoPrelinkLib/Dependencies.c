@@ -39,23 +39,21 @@ InternalFillSymbolTable64 (
   UINT32              Index;
   CONST MACH_NLIST_64 *Symbol;
   CONST CHAR8         *Name;
-  BOOLEAN             Result;
 
   ASSERT (MachoContext != NULL);
   ASSERT (Symbols != NULL);
   ASSERT (SymbolTable != NULL);
 
   WalkerBottom = &SymbolTable->Symbols[0];
-  WalkerTop    = &SymbolTable->Symbols[SymbolTable->NumSymbols - 1];
+  WalkerTop    = &SymbolTable->Symbols[NumSymbols - 1];
 
   NumCxxSymbols = 0;
 
   for (Index = 0; Index < NumSymbols; ++Index) {
     Symbol = &Symbols[Index];
     Name   = MachoGetSymbolName64 (MachoContext, Symbol);
-    Result = MachoSymbolNameIsCxx (Name);
 
-    if (!Result) {
+    if (!MachoSymbolNameIsCxx (Name)) {
       WalkerBottom->StringIndex = Symbol->UnifiedName.StringIndex;
       WalkerBottom->Value       = Symbol->Value;
       ++WalkerBottom;
@@ -121,7 +119,10 @@ InternalFindPrelinkedKextPlist (
     Walker = AsciiStrStr (Walker, BundleIdKey)
     ) {
     Walker2 = AsciiStrStr (Walker, "<string>");
-    ASSERT (Walker2 != NULL);
+    if (Walker == NULL) {
+      return NULL;
+    }
+
     Walker2 += L_STR_LEN ("<string>");
 
     Result = AsciiKextNameCmp (Walker2, BundleId);
@@ -132,7 +133,9 @@ InternalFindPrelinkedKextPlist (
       DictLevel = 1;
 
       for (Walker -= L_STR_LEN ("<dict>"); TRUE; --Walker) {
-        ASSERT (Walker >= PrelinkedPlist);
+        if (Walker < PrelinkedPlist) {
+          return NULL;
+        }
         //
         // Find the KEXT PLIST dictionary entry.
         //
@@ -179,17 +182,25 @@ InternalKextCollectDependencies (
   CONST CHAR8 *Walker;
   CHAR8       *DictEnd;
 
+  ASSERT (BundleLibrariesStr != NULL);
+  ASSERT (*BundleLibrariesStr != NULL);
+  ASSERT (NumberOfDependencies != NULL);
+
   Dependencies    = NULL;
   NumDependencies = 0;
   DictEnd         = NULL;
 
-  Walker  = *BundleLibrariesStr;
+  Walker = *BundleLibrariesStr;
+  // TODO: ASSERT?
   Walker += L_STR_LEN (OS_BUNDLE_LIBRARIES_STR "</key>");
   //
   // Retrieve the opening of the OSBundleLibraries key.
   //
   Walker = AsciiStrStr (Walker, "<dict");
-  ASSERT (Walker != NULL);
+  if (Walker == NULL) {
+    return NULL;
+  }
+
   Walker += L_STR_LEN ("<dict");
   //
   // Verify the dict is not an empty single tag.
@@ -198,7 +209,9 @@ InternalKextCollectDependencies (
     ++Walker;
   }
   if (*Walker != '/') {
-    ASSERT (*Walker == '>');
+    //
+    // A valid PLIST will have '>' here.
+    //
     ++Walker;
     //
     // Locate the closure of the OSBundleLibraries dict.  Dicts inside
@@ -206,7 +219,9 @@ InternalKextCollectDependencies (
     // fine.
     //
     DictEnd = AsciiStrStr (Walker, "</dict>");
-    ASSERT (DictEnd != NULL);
+    if (DictEnd == NULL) {
+      return NULL;
+    }
     //
     // Temporarily terminate the PLIST string at the beginning of the
     // OSBundleLibraries closing tag so that AsciiStrStr() calls do not exceed
@@ -218,19 +233,16 @@ InternalKextCollectDependencies (
     // later.
     //
     Dependencies = AsciiStrStr (Walker, "<key>");
-    ASSERT (Dependencies != NULL);
+    if (Dependencies == NULL) {
+      return NULL;
+    }
 
     for (
       Walker = Dependencies;
       Walker != NULL;
-      Walker = AsciiStrStr (Walker, "<key>")
+      Walker = AsciiStrStr ((Walker + L_STR_LEN ("<key>")), "<key>")
       ) {
       ++NumDependencies;
-      //
-      // A dependency must have a non-empty name to be valid.
-      // A valid string-value for the version identifies is mandatory.
-      //
-      Walker += L_STR_LEN ("<key>x</key><string>x</string>");
     }
     //
     // Restore the previously replaced opening brace.
@@ -241,7 +253,7 @@ InternalKextCollectDependencies (
   if (DictEnd != NULL) {
     *BundleLibrariesStr = (DictEnd + L_STR_LEN ("</dict>"));
   } else {
-    *BundleLibrariesStr = Walker;
+    *BundleLibrariesStr = (Walker + 1);
   }
 
   *NumberOfDependencies = NumDependencies;
@@ -261,6 +273,8 @@ InternalStringToKextVersionWorker (
   CHAR8       *VersionEnd;
   CONST CHAR8 *VersionReturn;
 
+  ASSERT (VersionString != NULL);
+
   VersionReturn = NULL;
 
   VersionStart = *VersionString;
@@ -275,7 +289,6 @@ InternalStringToKextVersionWorker (
   if (VersionEnd != NULL) {
     *VersionEnd   = '.';
     VersionReturn = (VersionEnd + 1);
-    ASSERT (*VersionReturn != '\0');
   }
 
   *VersionString = VersionReturn;
@@ -292,29 +305,28 @@ InternalStringToKextVersion (
   OC_KEXT_VERSION KextVersion;
   CONST CHAR8     *Walker;
 
+  ASSERT (VersionString != NULL);
+
   KextVersion.Value = 0;
 
   Walker = VersionString;
 
   KextVersion.Bits.Major = InternalStringToKextVersionWorker (&Walker);
-  ASSERT (KextVersion.Bits.Major != 0);
-  ASSERT (Walker != NULL);
+  if (Walker == NULL) {
+    return KextVersion.Value;
+  }
 
   KextVersion.Bits.Minor = InternalStringToKextVersionWorker (&Walker);
-  ASSERT (KextVersion.Bits.Minor != 0);
-
   if (Walker == NULL) {
     return KextVersion.Value;
   }
 
   KextVersion.Bits.Revision = InternalStringToKextVersionWorker (&Walker);
-  ASSERT (KextVersion.Bits.Revision != 0);
-
   if (Walker == NULL) {
     return KextVersion.Value;
   }
 
-  switch (Walker[0]) {
+  switch (*Walker) {
     case 'd':
     {
       KextVersion.Bits.Stage = OcKextVersionStageDevelopment;
@@ -340,7 +352,6 @@ InternalStringToKextVersion (
       if (Walker[1] == 'c') {
         ++Walker;
       }
-      ASSERT ((Walker[1] >= '0') && (Walker[1] <= '9'));
 
       break;
     }
@@ -354,7 +365,6 @@ InternalStringToKextVersion (
   ++Walker;
 
   KextVersion.Bits.StageLevel = (UINT16)AsciiStrDecimalToUintn (Walker);
-  ASSERT (KextVersion.Bits.StageLevel != 0);
   
   return KextVersion.Value;
 }
@@ -364,6 +374,8 @@ InternalFreeDependencyEntry (
   IN OC_DEPENDENCY_INFO_ENTRY  *Entry
   )
 {
+  ASSERT (Entry != NULL);
+
   if (Entry->Data.SymbolTable != NULL) {
     FreePool (Entry->Data.SymbolTable);
   }
@@ -393,6 +405,10 @@ InternalRemoveDependency (
   OC_DEPENDENCY_INFO_ENTRY *DepWalker;
   LIST_ENTRY               *PreviousEntry;
   BOOLEAN                  IsDependency;
+
+  ASSERT (Dependencies != NULL);
+  ASSERT ((NumRequests == 0) || (Requests != NULL));
+  ASSERT (DependencyInfo != NULL);
 
   IsDependency = FALSE;
   //
