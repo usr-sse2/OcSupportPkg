@@ -43,33 +43,33 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Protocol/SimpleTextInEx.h>
 #include <Protocol/SimpleFileSystem.h>
 
-STATIC GUID SystemUUID = {0x5BC82C38, 0x4DB6, 0x4883, {0x85, 0x2E, 0xE7, 0x8D, 0x78, 0x0A, 0x6F, 0xE6}};
+STATIC GUID SystemUUID = {0x44454C4C, 0x4800, 0x104D, {0x80, 0x44, 0xB7, 0xC0, 0x4F, 0x5A, 0x59, 0x31}};
 STATIC UINT8 BoardType = 0xA; // Motherboard (BaseBoardTypeMotherBoard)
 STATIC UINT8 MemoryFormFactor = 0xD; // SODIMM, 0x9 for DIMM (MemoryFormFactorSodimm)
 STATIC UINT8 ChassisType = 0xD; // All in one (MiscChassisTypeAllInOne)
 STATIC OC_SMBIOS_DATA Data = {
   .BIOSVendor = NULL, // Do not change BIOS Vendor
-  .BIOSVersion = "134.0.0.0.0",
-  .BIOSReleaseDate = "12/08/2017",
-  .SystemManufacturer = NULL, // Do not change System Manufacturer
-  .SystemProductName = "iMac14,2",
+  .BIOSVersion = "281.0.0.0.0",
+  .BIOSReleaseDate = "09/17/2018",
+  .SystemManufacturer = "Apple Inc.", // Do not change System Manufacturer
+  .SystemProductName = "iMac13,2",
   .SystemVersion = "1.0",
-  .SystemSerialNumber = "SU77OPENCORE",
+  .SystemSerialNumber = "C02JB041DNCW",
   .SystemUUID = &SystemUUID,
-  .SystemSKUNumber = "Mac-27ADBB7B4CEE8E61",
+  .SystemSKUNumber = "Mac-FC02E91DDD3FA6A4",
   .SystemFamily = "iMac",
-  .BoardManufacturer = NULL, // Do not change Board Manufacturer
-  .BoardProduct = "Mac-27ADBB7B4CEE8E61",
-  .BoardVersion = "iMac14,2",
-  .BoardSerialNumber = "SU77PEPELATZWAFFE",
+  .BoardManufacturer = "Apple Inc.", // Do not change Board Manufacturer
+  .BoardProduct = "Mac-FC02E91DDD3FA6A4",
+  .BoardVersion = "iMac13,2",
+  .BoardSerialNumber = "C02140302D5DMT31M",
   .BoardAssetTag = "",
   .BoardLocationInChassis = "Part Component",
   .BoardType = &BoardType,
   .MemoryFormFactor = &MemoryFormFactor,
   .ChassisType = &ChassisType,
-  .ChassisManufacturer = NULL, // Do not change Chassis Manufacturer
-  .ChassisVersion = "Mac-27ADBB7B4CEE8E61",
-  .ChassisSerialNumber = "SU77OPENCORE",
+  .ChassisManufacturer = "Apple Inc.", // Do not change Chassis Manufacturer
+  .ChassisVersion = "Mac-FC02E91DDD3FA6A4",
+  .ChassisSerialNumber = NULL,
   .ChassisAssetTag = "iMac-Aluminum",
   .FirmwareFeatures = 0xE00FE137,
   .FirmwareFeaturesMask = 0xFF1FFF3F,
